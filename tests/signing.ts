@@ -5,28 +5,40 @@ import {
   Connection,
   Keypair,
   Transaction,
-  sendAndConfirmTransaction,
+  sendAndConfirmRawTransaction,
+  SystemProgram,
 } from "@solana/web3.js";
-import wallet from "./wallet"
+import user from "./user.json";
+import wallet from "./wallet.json"
 
 describe("signing", () => {
+  // Load the wallet keypair for the frontend user
+  const userWallet = Keypair.fromSecretKey(new Uint8Array(user));
+
+  // Create a new keypair for the backend signer
+  const backendSigner = Keypair.fromSecretKey(new Uint8Array(wallet));
+  // Set up the provider
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
   const program = anchor.workspace.Signing as Program<Signing>;
-  const backendNode = Keypair.fromSecretKey(new Uint8Array(wallet));
-  const connection = new Connection("https://api.devnet.solana.com")
+  const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 
-  it("Is initialized!", async () => {
+  // Log the public keys for debugging
+  console.log("User Wallet Public Key:", userWallet.publicKey.toString());
+  console.log("Backend Signer Public Key:", backendSigner.publicKey.toString());
+  console.log(
+    "Provider Wallet Public Key:",
+    provider.wallet.publicKey.toString()
+  );
+
+  it("Should initialize with user (frontend) signing first, then backend", async () => {
     try {
-      // Frontend Process
-
-
+      // Create the instruction
       const instruction = await program.methods
         .initialize()
         .accounts({
           user: provider.wallet.publicKey,
-          offchain: backendNode.publicKey,
-          systemProgram: anchor.web3.SystemProgram.programId,
+          offchain: backendSigner.publicKey,
         })
         .instruction();
 
@@ -34,43 +46,47 @@ describe("signing", () => {
       const transaction = new Transaction();
       const { blockhash } = await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
-      transaction.feePayer = provider.wallet.publicKey; // Frontend wallet pays fees
+      transaction.feePayer = provider.wallet.publicKey;
       transaction.add(instruction);
-      //transaction.sign(provider.wallet);
 
+      // Frontend signs first
+      let signedTx = await provider.wallet.signTransaction(transaction);
 
-      // Frontend signs
-      const frontendSignedTx = await provider.wallet.signTransaction(transaction);
+      // Backend signs next
+      signedTx.partialSign(backendSigner);
 
-      // Serialize the partially signed transaction to send to backend
-      const serializedTx = frontendSignedTx.serialize({
-        requireAllSignatures: false,
-        verifySignatures: false
-      });
-
-      // BACKEND PROCESS
-      // Deserialize and verify the transaction
-      const recoveredTx = Transaction.from(serializedTx);
-
-      // Backend signs
-      recoveredTx.partialSign(backendNode);
-
-      // Send and confirm
-      const signature = await sendAndConfirmTransaction(
-        connection,
-        recoveredTx,
-        [backendNode],
+      // Send the fully signed transaction
+      const signature = await connection.sendRawTransaction(
+        signedTx.serialize(),
         {
-          commitment: 'confirmed'
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
         }
       );
 
-      console.log(
-        `Success! Check out transaction here: https://explorer.solana.com/tx/${signature}?cluster=devnet`,
-      );
+      console.log(`Transaction signature: ${signature}`);
     } catch (error) {
       console.error("Error:", error);
       throw error;
     }
+  });
+
+  // Helper function to airdrop SOL to the backend signer if needed
+  async function fundBackendSigner() {
+    try {
+      const airdropSignature = await connection.requestAirdrop(
+        backendSigner.publicKey,
+        1_000_000_000 // 1 SOL
+      );
+      await connection.confirmTransaction(airdropSignature, "confirmed");
+      console.log("Airdropped 1 SOL to backend signer");
+    } catch (error) {
+      console.error("Error funding backend signer:", error);
+    }
+  }
+
+  // Fund backend signer before running tests
+  before(async () => {
+    await fundBackendSigner();
   });
 });
