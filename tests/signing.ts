@@ -8,15 +8,15 @@ import {
   sendAndConfirmRawTransaction,
   SystemProgram,
 } from "@solana/web3.js";
-import user from "./user.json";
-import wallet from "./wallet.json"
+import user from "../user.json";
+import backend from "../backend.json"
 
 describe("signing", () => {
   // Load the wallet keypair for the frontend user
   const userWallet = Keypair.fromSecretKey(new Uint8Array(user));
 
   // Create a new keypair for the backend signer
-  const backendSigner = Keypair.fromSecretKey(new Uint8Array(wallet));
+  const backendSigner = Keypair.fromSecretKey(new Uint8Array(backend));
   // Set up the provider
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
