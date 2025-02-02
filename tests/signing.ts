@@ -19,9 +19,15 @@ describe("signing", () => {
   it("Is initialized!", async () => {
     try {
       // Frontend Process
+
+
       const instruction = await program.methods
         .initialize()
-        .accounts({})
+        .accounts({
+          user: provider.wallet.publicKey,
+          offchain: backendNode.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
         .instruction();
 
       // Create and configure transaction
@@ -30,6 +36,8 @@ describe("signing", () => {
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = provider.wallet.publicKey; // Frontend wallet pays fees
       transaction.add(instruction);
+      //transaction.sign(provider.wallet);
+
 
       // Frontend signs
       const frontendSignedTx = await provider.wallet.signTransaction(transaction);

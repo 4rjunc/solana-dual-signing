@@ -16,5 +16,6 @@ pub mod signing {
 pub struct Initialize<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
+    pub offchain: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
