@@ -51,7 +51,7 @@ describe("signing", () => {
       const signature = await sendAndConfirmTransaction(
         connection,
         recoveredTx,
-        [provider.wallet, backendNode], // Only need backend signer since frontend already signed
+        [backendNode],
         {
           commitment: 'confirmed'
         }
