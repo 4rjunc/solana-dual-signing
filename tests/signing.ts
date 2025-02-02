@@ -6,8 +6,6 @@ import {
   Keypair,
   Transaction,
   sendAndConfirmTransaction,
-  TransactionMessage,
-  VersionedTransaction
 } from "@solana/web3.js";
 import wallet from "./wallet"
 
@@ -53,7 +51,7 @@ describe("signing", () => {
       const signature = await sendAndConfirmTransaction(
         connection,
         recoveredTx,
-        [backendNode], // Only need backend signer since frontend already signed
+        [provider.wallet, backendNode], // Only need backend signer since frontend already signed
         {
           commitment: 'confirmed'
         }
